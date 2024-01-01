@@ -7,28 +7,42 @@ class Workstation {
 public:
     Workstation() = default;
 
-    void SetNodeID(const int value) {
-        NodeID = value;
+    void SetID(const int value) {
+        ID = value;
     }
 
-    int GetNodeID() const {
-        return NodeID;
+    void SetNodeID(const int value) {
+        NodeID = value;
     }
 
     void SetChannel(Channel *value) {
         channel = value;
     }
 
-    std::string GetNodeInfo() const {
-        std::string res = "W" + std::to_string(NodeID) + " - ";
+    int GetNodeID() const {
+        return NodeID;
+    }
 
-        res += channel->GetInfo();
+    int GetID() const {
+        return ID;
+    }
+
+    Channel *GetChannel() const {
+        return channel;
+    }
+
+    std::string Info() const {
+        std::string res = "W" + std::to_string(ID) + " - ";
+
+        if(channel){
+            res += channel->Info();
+        }
 
         return res;
     }
 
 private:
-    int NodeID;
+    int ID, NodeID;
     Channel *channel;
 };
 
