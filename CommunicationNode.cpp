@@ -68,7 +68,7 @@ void CommunicationNode::Activate(bool value = true){
 }
 
 std::string CommunicationNode::Info() const {
-    std::string res = "N" + std::to_string(NodeID) + "(" + std::to_string(ChannelsCount) + ") - ";
+    std::string res = "N" + std::to_string(NodeID) + "(" + std::to_string(ChannelsCount) + ")\t - ";
 
     for (auto &i: channels) {
         res += i->Info();

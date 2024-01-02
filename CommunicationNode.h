@@ -7,8 +7,6 @@
 
 class CommunicationNode {
 public:
-    CommunicationNode() = default;
-
     explicit CommunicationNode(int);
 
     void SetID(int);

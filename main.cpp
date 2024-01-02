@@ -1,12 +1,4 @@
 #include "NetworkModel.h"
-/*
- * Додавання двох супутникових каналів
- *
- * ChannelsGeneration
- * додавання WS
- * Додавання каналу (не працює додавання до WS)
- * проблеми з індексацією (у вузлів і станцій однакові індекси, можливо створити enum)
-*/
 
 void MainMenu() {
     NetworkModel networkModel{};

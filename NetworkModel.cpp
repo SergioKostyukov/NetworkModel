@@ -16,17 +16,6 @@ NetworkModel::NetworkModel(int nodeCount, int averageChannelsToNode, ChannelType
 
 // --------------------------- Configure Network ---------------------------
 
-// рахує кількість вузлів, які ще не мають всіх каналів
-int NetworkModel::CountNotFullNodes() {
-    int count = 0;
-    for (auto &i: nodes) {
-        if (i.GetChannelsCount() != i.GetVectorSize()) {
-            count++;
-        }
-    }
-    return count;
-}
-
 // меню для створення мережі
 void NetworkModel::ConfigureNetwork() {
     ClearLogFile();
@@ -61,7 +50,6 @@ void NetworkModel::ConfigureNetwork() {
         switch (choice) {
             case 1:
                 AutoGeneration();
-                ShowNetworkModel();
                 break;
             case 2:
                 AddNode();
@@ -108,14 +96,12 @@ void NetworkModel::ConfigureNetwork() {
 
 // автоматична генерація всієї мережі
 void NetworkModel::AutoGeneration() {
-    CommunicationNode tempNode{};
-
     // початкова ініціалізація всіх вузлів (ID, кількість каналів зв'язку)
     for (int i = int(nodes.size()); i < CNodeCount; i++) {
-        tempNode.SetID(i);
+        auto tempNode = new CommunicationNode(i);
 
-        if (i < CNodeCount / 2) tempNode.SetChannelsCount(GenerateRandomNumber(3, 5));
-        else tempNode.SetChannelsCount(CAverageChannelsToNode * 2 - nodes[i - CNodeCount / 2].GetChannelsCount());
+        if (i < CNodeCount / 2) tempNode->SetChannelsCount(GenerateRandomNumber(3, 5));
+        else tempNode->SetChannelsCount(CAverageChannelsToNode * 2 - nodes[i - CNodeCount / 2]->GetChannelsCount());
 
         nodes.emplace_back(tempNode);
         emptyIndex = CNodeCount;
@@ -123,69 +109,91 @@ void NetworkModel::AutoGeneration() {
 
     // генерація робочих станцій та прив'язка їх до певних вузлів
     StationsGeneration();
-    // emptyIndex = CNodeCount + int(stations.size());
+
+    // генерація SIMPLEX вузлів
+    SatelliteGeneration();
 
     // детальніше визначення вузлів та створення каналів між ними
     ChannelsGeneration();
 
     PrintToFile("Auto generation success\n");
+    ShowNetworkModel();
+}
+
+// рахує кількість вузлів, які ще не мають всіх каналів
+int NetworkModel::CountNotFullNodes() {
+    int count = 0;
+    for (auto &i: nodes) {
+        if (i->GetChannelsCount() != i->GetVectorSize()) {
+            count++;
+        }
+    }
+    return count;
 }
 
 // автоматична генерація вузлів
 void NetworkModel::ChannelsGeneration() {
     int randomNode, condition;
-    for (auto &i: nodes) {
-        condition = i.GetChannelsCount() - i.GetVectorSize(); // кількість ще не заповнених каналів для вузла
-        for (int j = 0; j < condition; j++) {
-            bool isFinalVersion = false; // перевірка фінальних випадків, коли канали провести вже не можливо
+    std::vector<CommunicationNode *> tempNodes = nodes;
 
+    CommunicationNode *temp;
+    do {
+        temp = tempNodes[0];
+        condition = temp->GetChannelsCount() - temp->GetVectorSize(); // кількість ще не заповнених каналів для вузла
+
+        for (int j = 0; j < condition; j++) {
+            bool isFinalVersion; // перевірка фінальних випадків, коли канали провести вже не можливо
             do {
-                randomNode = GenerateRandomNumber(i.GetID() + 1, 23);
+                randomNode = GenerateRandomNumber(1, int(tempNodes.size()));
 
                 // вивід даних для перевірки стану зв'язків мережі
-                PrintToFile(std::to_string(i.GetID()) + ". Find something else " + std::to_string(randomNode) +
+                PrintToFile(std::to_string(int(tempNodes.size())) + " " + std::to_string(tempNodes[1]->GetID()) + '\n');
+                PrintToFile(std::to_string(temp->GetID()) + ". Find something else " + std::to_string(randomNode) +
                             ". Count NFN " + std::to_string(CountNotFullNodes()) + "\n" + ShowNodeStatus() + "\n");
 
-                // !!! бажано замінити функцію 'i.IsChannelExist(randomNode)' на конкретне порівняння двох/трьох/чотирьох вузлів, що залишились і їх зв'язки !!!
-                isFinalVersion =
-                        (CountNotFullNodes() <= 1) || (CountNotFullNodes() == 2 && i.IsChannelExist(randomNode) !=
-                                                                                   nullptr);
-                PrintToFile(std::to_string(isFinalVersion) + '\n');
-            } while ((nodes[randomNode].GetVectorSize() == nodes[randomNode].GetChannelsCount() ||
-                      i.IsChannelExist(randomNode)) &&
-                     !isFinalVersion);
-            /* Уникнення випадків: додавання до вже заповненого вузла
-                                   повторення каналів між вузлами,
-                                   канали провести вже не можливо
-            */
+                // можна винести за do while
+                isFinalVersion = ((int(tempNodes.size()) <= 1) ||
+                                  int(tempNodes.size()) == 2 && temp->IsChannelExist(tempNodes[randomNode]->GetID()));
+            } while ((temp->IsChannelExist(tempNodes[randomNode]->GetID()) != nullptr ||
+                      tempNodes[randomNode]->GetID() == temp->GetID()) && !isFinalVersion);
 
             if (!isFinalVersion) {
-                auto tempChannel = new Channel(i.GetID(), randomNode, type);
-                i.AddChannel(tempChannel);
-                nodes[randomNode].AddChannel(tempChannel);
+                auto tempChannel = new Channel(temp->GetID(), tempNodes[randomNode]->GetID(), type);
+                temp->AddChannel(tempChannel);
+                tempNodes[randomNode]->AddChannel(tempChannel);
                 channels.push_back(tempChannel);
+
+                if (tempNodes[randomNode]->GetVectorSize() == tempNodes[randomNode]->GetChannelsCount()) {
+                    tempNodes.erase(std::remove(tempNodes.begin(), tempNodes.end(), tempNodes[randomNode]),
+                                    tempNodes.end());
+                    PrintToFile("Element delete\n");
+                }
             }
         }
-    }
+
+        tempNodes.erase(std::remove(tempNodes.begin(), tempNodes.end(), tempNodes[0]), tempNodes.end());
+        PrintToFile("Element 0 delete\n");
+    } while (!tempNodes.empty());
 
     PrintToFile("Channels generation success\n");
 }
 
 // автоматична генерація робочих станцій
 void NetworkModel::StationsGeneration() {
-    Workstation tempWorkstation{};
     int count = 0;
     std::vector<int> points{2, 4, 8, 12, 17, 22};
 
     for (auto &i: points) {
-        tempWorkstation.SetID(count++);
-        tempWorkstation.SetNodeID(i);
+        auto tempWorkstation = new Workstation();
+        tempWorkstation->SetID(count++);
+        tempWorkstation->SetNodeID(i);
 
         // створення каналу до прикріпленого вузла
-        auto tempChannel = new Channel(i, tempWorkstation.GetID(), type);
-        nodes[i].SetWorkStationChannel(tempChannel);
-        tempWorkstation.SetChannel(tempChannel);
+        auto tempChannel = new Channel(i, tempWorkstation->GetID(), type);
+        nodes[i]->SetWorkStationChannel(tempChannel);
+        tempWorkstation->SetChannel(tempChannel);
         channels.push_back(tempChannel);
+
 
         stations.emplace_back(tempWorkstation);
     }
@@ -194,17 +202,26 @@ void NetworkModel::StationsGeneration() {
 }
 
 // генерація супутникових каналів
-void NetworkModel::SatelliteGenration() {
+void NetworkModel::SatelliteGeneration() {
+    int randomNode1, randomNode2;
 
+    randomNode1 = GenerateRandomNumber(0, 23);
+    do {
+        randomNode2 = GenerateRandomNumber(0, 23);
+    } while (nodes[randomNode1]->IsChannelExist(randomNode2) != nullptr);
+
+    auto tempChannel = new Channel(randomNode1, randomNode2, ChannelType::SIMPLEX);
+    nodes[randomNode1]->AddChannel(tempChannel);
+    nodes[randomNode2]->AddChannel(tempChannel);
+    channels.push_back(tempChannel);
 
     PrintToFile("Satellite generation success\n");
 }
 
 void NetworkModel::AddNode() {
-    CommunicationNode tempNode{};
+    auto tempNode = new CommunicationNode(emptyIndex++);
 
-    tempNode.SetID(emptyIndex++);
-    tempNode.SetChannelsCount(CAverageChannelsToNode);
+    tempNode->SetChannelsCount(CAverageChannelsToNode);
 
     nodes.emplace_back(tempNode);
 
@@ -214,27 +231,22 @@ void NetworkModel::AddNode() {
 
 void NetworkModel::AddChannel(int x, int y) {
     // перевірка на існування такого каналу
-    for (auto &i: channels) {
-        if (i->CompareChannels(x, y) != nullptr) {
-            PrintToFile("Channel " + i->Info() + "also exist.\n");
-            return;
-        }
+    auto tempChannel = FindChannel(x, y);
+    if (tempChannel != nullptr) {
+        PrintToFile("Channel " + tempChannel->Info() + "also exist.\n");
+        return;
     }
 
     // перевірка на існування таких вузлів
-    if (std::find_if(nodes.begin(), nodes.end(), [x](const CommunicationNode &node) { return node.GetID() == x; }) ==
-        nodes.end() ||
-        std::find_if(nodes.begin(), nodes.end(), [y](const CommunicationNode &node) {
-            return node.GetID() == y;
-        }) == nodes.end()) {
+    if (FindNode(x) == nullptr || FindNode(y) == nullptr) {
         PrintToFile("Nodes with this indexes does not exist.\n");
         return;
     }
 
     // додавання каналу та запис про нього в вузли
-    auto tempChannel = new Channel(x, y, type);
-    nodes[x].AddChannel(tempChannel);
-    nodes[y].AddChannel(tempChannel);
+    tempChannel = new Channel(x, y, type);
+    nodes[x]->AddChannel(tempChannel);
+    nodes[y]->AddChannel(tempChannel);
     channels.push_back(tempChannel);
 
     PrintToFile("Added new channel " + tempChannel->Info() + "\n");
@@ -243,30 +255,29 @@ void NetworkModel::AddChannel(int x, int y) {
 
 void NetworkModel::DeleteNode(int x) {
     // перевірка на існування вузла
-    auto it = std::find(nodes.begin(), nodes.end(), x);
-    if (it == nodes.end()) {
+    if (FindNode(x) == nullptr) {
         PrintToFile("Node with this index does not exist.\n");
         return;
     }
 
     // видалення пов'язаних каналів
-    for (auto &i: nodes[x].GetChannels()) {
+    for (auto &i: nodes[x]->GetChannels()) {
         // видалення зв'язків каналу та вузла
-        nodes[i->GetNode1()].RemoveChannel(i);
-        nodes[i->GetNode2()].RemoveChannel(i);
+        nodes[i->GetNode1()]->RemoveChannel(i);
+        nodes[i->GetNode2()]->RemoveChannel(i);
 
         // видалення каналу зі списку channels
         channels.erase(std::remove(channels.begin(), channels.end(), i), channels.end());
     }
-    nodes[x].DeleteChannels();
+    nodes[x]->DeleteChannels();
     PrintToFile("Channels deleted\n");
 
     // видалення каналу до робочої станції
-    if (nodes[x].GetWorkStationChannel()) {
-        int StationID = nodes[x].GetWorkStationChannel()->GetNode2();
+    if (nodes[x]->GetWorkStationChannel()) {
+        int StationID = nodes[x]->GetWorkStationChannel()->GetNode2();
 
-        stations[StationID].SetChannel(nullptr);
-        nodes[x].DeleteWorkStation();
+        stations[StationID]->SetChannel(nullptr);
+        nodes[x]->DeleteWorkStation();
 
         auto channel = FindChannel(x, StationID);
         channels.erase(std::remove(channels.begin(), channels.end(), channel), channels.end());
@@ -287,8 +298,8 @@ void NetworkModel::DeleteChannel(int x, int y) {
         PrintToFile("No such channel " + std::to_string(x) + "->" + std::to_string(y) + "\n");
     }
 
-    nodes[temp->GetNode1()].RemoveChannel(temp);
-    nodes[temp->GetNode2()].RemoveChannel(temp);
+    nodes[temp->GetNode1()]->RemoveChannel(temp);
+    nodes[temp->GetNode2()]->RemoveChannel(temp);
 
     channels.erase(std::remove(channels.begin(), channels.end(), temp), channels.end());
 
@@ -347,18 +358,20 @@ void NetworkModel::OffChannel(int x, int y) {
 
 // знаходження вузла в списку nodes
 CommunicationNode *NetworkModel::FindNode(int x) {
-    for (auto &i: nodes) {
-        if (i.GetID() == x) return &i;
-    }
-    return nullptr;
+    auto it = std::find_if(nodes.begin(), nodes.end(),
+                           [x](const CommunicationNode *node) { return node->GetID() == x; });
+
+    if (it == nodes.end()) return nullptr;
+    return *it;
 }
 
 // знаходження каналу в списку channels
 Channel *NetworkModel::FindChannel(int x, int y) {
-    for (auto &i: channels) {
-        if (i->CompareChannels(x, y)) return i;
-    }
-    return nullptr;
+    auto it = std::find_if(channels.begin(), channels.end(),
+                           [x, y](const Channel *node) { return node->CompareChannels(x, y) != nullptr; });
+
+    if (it == channels.end()) return nullptr;
+    return *it;
 }
 
 // ----------------------------- Out messages ---------------------------------
@@ -367,8 +380,8 @@ Channel *NetworkModel::FindChannel(int x, int y) {
 std::string NetworkModel::ShowNodeStatus() {
     std::string res;
     for (auto &i: nodes) {
-        if (i.GetChannelsCount() != i.GetVectorSize()) {
-            res += i.Info() + "\n";
+        if (i->GetChannelsCount() != i->GetVectorSize()) {
+            res += i->Info() + "\n";
         }
     }
     return res;
@@ -380,11 +393,11 @@ void NetworkModel::ShowNetworkModel(const std::string &fileName) {
     if (!file.is_open()) std::cerr << "Error open file" << std::endl;
 
     for (auto &i: nodes) {
-        file << i.Info() << std::endl;
+        file << i->Info() << std::endl;
     }
 
     for (auto &i: stations) {
-        file << i.Info() << std::endl;
+        file << i->Info() << std::endl;
     }
 
     file << "\nNot Full Node Connections\n" << ShowNodeStatus() << std::endl;
@@ -404,7 +417,7 @@ void NetworkModel::SaveConfiguration() {
     // створює таблицю [CNodeCount]x[CNodeCount]
     for (auto &i: nodes) {
         for (int j = 0; j < CNodeCount; j++) {
-            const Channel *temp = i.IsChannelExist(j);
+            const Channel *temp = i->IsChannelExist(j);
             if (temp) file << temp->GetWeight() << ";";
             else file << "0;";
         }

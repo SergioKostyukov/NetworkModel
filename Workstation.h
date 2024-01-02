@@ -10,11 +10,9 @@ public:
     void SetID(const int value) {
         ID = value;
     }
-
     void SetNodeID(const int value) {
         NodeID = value;
     }
-
     void SetChannel(Channel *value) {
         channel = value;
     }
@@ -22,11 +20,9 @@ public:
     int GetNodeID() const {
         return NodeID;
     }
-
     int GetID() const {
         return ID;
     }
-
     Channel *GetChannel() const {
         return channel;
     }

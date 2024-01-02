@@ -3,4 +3,4 @@ project(Computer_networks)
 
 set(CMAKE_CXX_STANDARD 20)
 
-add_executable(Computer_networks main.cpp CommunicationNode.cpp CommunicationNode.h Channel.h Workstation.h NetworkModel.cpp NetworkModel.h)
+add_executable(Computer_networks main.cpp CommunicationNode.cpp CommunicationNode.h Channel.h Workstation.h NetworkModel.cpp NetworkModel.h ShortestPath.cpp ShortestPath.h)

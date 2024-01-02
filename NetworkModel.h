@@ -7,7 +7,12 @@
 
 /*
  *
- * */
+ * ChannelsGeneration
+ *
+ * додавання WS
+ * Додавання/видалення каналу (не працює додавання до WS)
+ * проблеми з індексацією (у вузлів і станцій однакові індекси, можливо створити enum)
+*/
 
 class NetworkModel {
 public:
@@ -16,16 +21,16 @@ public:
     // меню для створення мережі
     void ConfigureNetwork();
 
-    //
+    // аналіз трафіку (віртуальний/дейтаграмний канал)
     void RunSimulation();
 
 private:
     std::vector<Channel *> channels;
-    std::vector<CommunicationNode> nodes;
-    std::vector<Workstation> stations;
+    std::vector<CommunicationNode *> nodes;
+    std::vector<Workstation *> stations;
     const int CNodeCount = 24;
     const int CAverageChannelsToNode = 4;
-    const int CSatelliteCount = 2;
+    //const int CSatelliteCount = 2;
     int emptyIndex = 0;
     ChannelType type = ChannelType::FULL_DUPLEX;
 
@@ -39,7 +44,7 @@ private:
     void StationsGeneration();
 
     // генерація супутникових каналів
-    void SatelliteGenration();
+    void SatelliteGeneration();
 
     // додавання/видалення каналів/вузлів
     void AddNode();
